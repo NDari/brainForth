@@ -18,6 +18,14 @@ func TestPush(t *testing.T) {
 	assert.Equal(t, v.s.tos, cellSize, "tos should advance by 'cellSize' each push at the starting byte of current element")
 }
 
+func TestPush2(t *testing.T) {
+	v := NewVM()
+	v.push2(10, 12)
+	assert.Equal(t, 12, int(binary.BigEndian.Uint64(v.s.data[v.s.tos:])), "push2 should put 2nd element on tos")
+	assert.Equal(t, 10, int(binary.BigEndian.Uint64(v.s.data[v.s.tos-cellSize:])), "push2 should put 1st element below tos")
+	assert.Equal(t, cellSize, v.s.tos, "push2 should increment tos by 2 cellSize")
+}
+
 func TestRPush(t *testing.T) {
 	v := NewVM()
 	v.push(10)
@@ -30,6 +38,15 @@ func TestRPush(t *testing.T) {
 	assert.Equal(t, 12, int(binary.BigEndian.Uint64(v.r.data[v.r.tos:])), "rpushed element should replace tos")
 	assert.Equal(t, 10, int(binary.BigEndian.Uint64(v.r.data[v.r.tos-cellSize:])), "rpush should keep old data")
 	assert.Equal(t, v.r.tos, cellSize, "tos should advance by 'cellSize' each push at the starting byte of current element")
+}
+func TestRPush2(t *testing.T) {
+	v := NewVM()
+	v.push2(10, 12)
+	v.rpush2()
+	assert.Equal(t, 12, int(binary.BigEndian.Uint64(v.r.data[v.r.tos:])), "rpush2 should put 2nd element on tos")
+	assert.Equal(t, 10, int(binary.BigEndian.Uint64(v.r.data[v.r.tos-cellSize:])), "rpush2 should put 1st element below tos")
+	assert.Equal(t, cellSize, v.r.tos, "rpush2 should increment tos twice")
+	assert.Equal(t, -cellSize, v.s.tos, "element should be removed from S after rpush2")
 }
 
 func TestPop(t *testing.T) {
