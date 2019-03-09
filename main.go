@@ -13,45 +13,54 @@ type stack struct {
 	data []byte
 }
 
-var s = &stack{
-	-cellSize,
-	make([]byte, 124*cellSize),
+type VM struct {
+	s *stack
+	r *stack
 }
 
-var r = &stack{
-	-cellSize,
-	make([]byte, 124*cellSize),
+func NewVM() *VM {
+	return &VM{
+		&stack{
+			-cellSize,
+			make([]byte, 124*cellSize),
+		},
+		&stack{
+			-cellSize,
+			make([]byte, 124*cellSize),
+		},
+	}
 }
 
-func push(val uint64) {
-	s.tos += cellSize
-	binary.BigEndian.PutUint64(s.data[s.tos:], val)
+func (v *VM) push(val uint64) {
+	v.s.tos += cellSize
+	binary.BigEndian.PutUint64(v.s.data[v.s.tos:], val)
 }
 
-func pop() {
-	s.tos -= cellSize
+func (v *VM) pop() {
+	v.s.tos -= cellSize
 }
 
-func rpush(val uint64) {
-	r.tos += cellSize
-	binary.BigEndian.PutUint64(r.data[r.tos:], val)
+func (v *VM) rpush() {
+	v.r.tos += cellSize
+	_ = copy(v.r.data[v.r.tos:v.r.tos+cellSize], v.s.data[v.s.tos:v.s.tos+cellSize])
+	v.s.tos -= cellSize
 }
 
-func rpop() {
-	r.tos -= cellSize
+func (v *VM) rpop() {
+	v.r.tos -= cellSize
 }
 
-func fetch() {
-	ridx := int(binary.BigEndian.Uint64(s.data[s.tos:]))
-	_ = copy(s.data[s.tos:s.tos+cellSize], r.data[ridx:ridx+cellSize])
+func (v *VM) fetch() {
+	ridx := int(binary.BigEndian.Uint64(v.s.data[v.s.tos:]))
+	_ = copy(v.s.data[v.s.tos:v.s.tos+cellSize], v.r.data[ridx:ridx+cellSize])
 }
 
-func store() {
-	ridx := int(binary.BigEndian.Uint64(s.data[s.tos:]))
-	_ = copy(r.data[ridx:ridx+cellSize], s.data[s.tos-cellSize:s.tos])
-	s.tos -= 2 * cellSize
+func (v *VM) store() {
+	ridx := int(binary.BigEndian.Uint64(v.s.data[v.s.tos:]))
+	_ = copy(v.r.data[ridx:ridx+cellSize], v.s.data[v.s.tos-cellSize:v.s.tos])
+	v.s.tos -= 2 * cellSize
 }
 
-func prn() string {
-	return fmt.Sprintf("%s", hex.Dump(s.data[:s.tos+8]))
+func (v *VM) prn() string {
+	return fmt.Sprintf("%s", hex.Dump(v.s.data[:v.s.tos+cellSize]))
 }
