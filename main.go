@@ -21,26 +21,26 @@ type VM struct {
 func NewVM() *VM {
 	return &VM{
 		&stack{
-			-cellSize,
+			0,
 			make([]byte, 124*cellSize),
 		},
 		&stack{
-			-cellSize,
+			0,
 			make([]byte, 124*cellSize),
 		},
 	}
 }
 
 func (v *VM) push(val uint64) {
-	v.s.tos += cellSize
 	binary.BigEndian.PutUint64(v.s.data[v.s.tos:], val)
+	v.s.tos += cellSize
 }
 
 func (v *VM) push2(belowTop, top uint64) {
-	v.s.tos += cellSize
 	binary.BigEndian.PutUint64(v.s.data[v.s.tos:], belowTop)
 	v.s.tos += cellSize
 	binary.BigEndian.PutUint64(v.s.data[v.s.tos:], top)
+	v.s.tos += cellSize
 }
 
 func (v *VM) pop() {
@@ -48,16 +48,15 @@ func (v *VM) pop() {
 }
 
 func (v *VM) rpush() {
-	v.r.tos += cellSize
-	_ = copy(v.r.data[v.r.tos:v.r.tos+cellSize], v.s.data[v.s.tos:v.s.tos+cellSize])
 	v.s.tos -= cellSize
+	_ = copy(v.r.data[v.r.tos:v.r.tos+cellSize], v.s.data[v.s.tos:v.s.tos+cellSize])
+	v.r.tos += cellSize
 }
 
 func (v *VM) rpush2() {
-	v.r.tos += cellSize
-	_ = copy(v.r.data[v.r.tos:v.r.tos+2*cellSize], v.s.data[v.s.tos-cellSize:v.s.tos+cellSize])
+	_ = copy(v.r.data[v.r.tos:v.r.tos+2*cellSize], v.s.data[v.s.tos-2*cellSize:v.s.tos])
+	v.r.tos += 2 * cellSize
 	v.s.tos -= 2 * cellSize
-	v.r.tos += cellSize
 }
 
 func (v *VM) rpop() {
@@ -65,28 +64,40 @@ func (v *VM) rpop() {
 }
 
 func (v *VM) fetch() {
-	ridx := int(binary.BigEndian.Uint64(v.s.data[v.s.tos:]))
-	_ = copy(v.s.data[v.s.tos:v.s.tos+cellSize], v.r.data[ridx:ridx+cellSize])
+	ridx := int(binary.BigEndian.Uint64(v.s.data[v.s.tos-cellSize:]))
+	_ = copy(v.s.data[v.s.tos-cellSize:v.s.tos], v.r.data[ridx*cellSize:(ridx+1)*cellSize])
 }
 
 func (v *VM) fetch2() {
-	ridx := int(binary.BigEndian.Uint64(v.s.data[v.s.tos:]))
-	_ = copy(v.s.data[v.s.tos:v.s.tos+2*cellSize], v.r.data[ridx:ridx+2*cellSize])
-	v.s.tos += cellSize
+	ridx := int(binary.BigEndian.Uint64(v.s.data[v.s.tos-cellSize:]))
+	v.s.tos -= cellSize
+	_ = copy(v.s.data[v.s.tos:(v.s.tos+2)*cellSize], v.r.data[ridx*cellSize:(ridx+2)*cellSize])
+	v.s.tos += 2 * cellSize
 }
 
 func (v *VM) store() {
-	ridx := int(binary.BigEndian.Uint64(v.s.data[v.s.tos:]))
-	_ = copy(v.r.data[ridx:ridx+cellSize], v.s.data[v.s.tos-cellSize:v.s.tos])
+	ridx := int(binary.BigEndian.Uint64(v.s.data[v.s.tos-cellSize:]))
+	_ = copy(v.r.data[ridx*cellSize:(ridx+1)*cellSize], v.s.data[v.s.tos-2*cellSize:v.s.tos-cellSize])
 	v.s.tos -= 2 * cellSize
 }
 
 func (v *VM) store2() {
-	ridx := int(binary.BigEndian.Uint64(v.s.data[v.s.tos:]))
-	_ = copy(v.r.data[ridx:ridx+2*cellSize], v.s.data[v.s.tos-2*cellSize:v.s.tos])
-	v.s.tos -= 3 * cellSize
+	ridx := int(binary.BigEndian.Uint64(v.s.data[v.s.tos-cellSize:]))
+	v.s.tos -= cellSize
+	_ = copy(v.r.data[ridx*cellSize:(ridx+2)*cellSize], v.s.data[v.s.tos-2*cellSize:v.s.tos])
+	v.s.tos -= 2 * cellSize
 }
 
 func (v *VM) prn() string {
-	return fmt.Sprintf("%s", hex.Dump(v.s.data[:v.s.tos+cellSize]))
+	return fmt.Sprintf("%s", hex.Dump(v.s.data[:v.s.tos]))
+}
+
+func main() {
+	v := NewVM()
+	v.push(10)
+	v.push(12)
+	v.push(2)
+	v.store2()
+	v.push(2)
+	v.fetch2()
 }
