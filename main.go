@@ -91,13 +91,3 @@ func (v *VM) store2() {
 func (v *VM) prn() string {
 	return fmt.Sprintf("%s", hex.Dump(v.s.data[:v.s.tos]))
 }
-
-func main() {
-	v := NewVM()
-	v.push(10)
-	v.push(12)
-	v.push(2)
-	v.store2()
-	v.push(2)
-	v.fetch2()
-}
