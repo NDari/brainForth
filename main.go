@@ -63,6 +63,17 @@ func (v *VM) RPush2Cell() {
 	v.s.tos -= 2 * v.CellSize()
 }
 
+// func (v *VM) RStoreBytes(buf []byte) {
+// 	l := len(buf)
+// 	ridx := uint64(v.r.tos)
+// 	length := uint64(l)
+// 	_ = copy(v.r.data[v.r.tos:v.r.tos+l], buf)
+// 	v.r.tos += l
+// 	v.Push2Cell(ridx, length)
+// }
+
+// func (v *VM) FetchBytes
+
 func (v *VM) RPopCell() {
 	v.r.tos -= v.CellSize()
 }
