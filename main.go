@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
@@ -28,32 +27,33 @@ type stack struct {
 type vmfunc func(*VM) error
 
 type VM struct {
-	d      map[string]vmfunc
-	s      stack
-	r      stack
-	e      stack
-	stream *bufio.ReadWriter
+	words map[string]vmfunc
+	d stack
+	r stack
+	s stack
+	input string
 }
 
 func main() {
-	b := make([]byte, 1000)
-	buffer := bytes.NewBuffer(b)
-	v := NewVM(bufio.NewReadWriter(buffer, bufio.NewWriter(os.Stdout)))
+	v := NewVM()
+	rd := bufio.NewReader(os.Stdin)
 	lineNum := 0
 	for {
 		lineNum++
 		fmt.Print(fmt.Sprintf("[%d]=> ", lineNum))
 		str, _ := rd.ReadString('\n')
-		s, err := e.Eval(str)
+		v.input = str + "\n"
+		err := parseLine(v)
 		if err != nil {
 			fmt.Println(err)
 		} else {
-			fmt.Println(s)
+			fmt.Println("data:", v.s.data[:v.s.tos])
+			fmt.Println("return:", v.r.data[:v.r.tos])
 		}
 	}
 }
 
-func NewVM(stream *bufio.ReadWriter) *VM {
+func NewVM() *VM {
 	return &VM{
 		makeDefaultDict(),
 		stack{
@@ -68,21 +68,31 @@ func NewVM(stream *bufio.ReadWriter) *VM {
 			0,
 			make([]byte, 124*8),
 		},
-		stream,
+		"",
 	}
 }
 
-func parseItem(v *VM) error {
-	s, err := v.input.ReadString(' ')
-	if err != nil {
-		return err
+func parseLine(v *VM) error {
+	items := strings.Fields(v.input)
+	if len(items) == 0 {
+		return nil
 	}
+	for _, item := range items {
+		if err := parseItem(v, item); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func parseItem(v *VM, s string) error {
 	if strings.HasPrefix(s, "\\") {
 		b := []byte(s)
 		c := copy(v.r.data[v.r.tos:], b)
 		if c != len(b) {
 			return fmt.Errorf("quote copy failed: copied %d, should be %d", c, len(b))
 		}
+		v.r.tos += len(b)
 		binary.BigEndian.PutUint64(v.s.data[v.s.tos:], uint64(v.s.tos))
 		v.s.tos += 8
 		binary.BigEndian.PutUint64(v.s.data[v.s.tos:], uint64(len(b)))
@@ -96,13 +106,14 @@ func parseItem(v *VM) error {
 			return err
 		}
 		binary.BigEndian.PutUint64(v.s.data[v.s.tos:], uint64(i))
+		v.s.tos += 8
 		return nil
 	}
-	val, ok := v.d[s]
+	word, ok := v.words[s]
 	if !ok {
 		return fmt.Errorf("unknown word: %s", s)
 	}
-	err = val(v)
+	err := word(v)
 	if err != nil {
 		return err
 	}
@@ -110,17 +121,13 @@ func parseItem(v *VM) error {
 }
 
 func prnDataStack(v *VM) error {
-	_, err := v.output.WriteString(fmt.Sprintf("%s", hex.Dump(v.s.data[:v.s.tos])))
-	if err != nil {
-		return err
-	}
+	fmt.Println(fmt.Sprintf("%s", hex.Dump(v.s.data[:v.s.tos])))
 	return nil
 }
 
 func makeDefaultDict() map[string]vmfunc {
 	d := make(map[string]vmfunc)
 	d["prn"] = prnDataStack
-	d["parse-item"] = parseItem
 	return d
 }
 
