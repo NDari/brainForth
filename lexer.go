@@ -1,9 +1,7 @@
 package main
 
-import "regexp"
-
 // regex to match numbers
-var number = regexp.MustCompile("^[-+]?[0-9]+.?[[0-9]*]?$")
+// var number = regexp.MustCompile("^[-+]?[0-9]+.?[[0-9]*]?$")
 
 // Token is a lexical component the Cog programming language.
 type Token int
@@ -13,9 +11,10 @@ const (
 	ILLIGAL Token = iota
 	EOF
 
-	WORD // main
-	STR  // "hello"
-	NUM  // 2.234
+	WORD  // main
+	QUOTE // \main
+	STR   // "hello"
+	NUM   // 234
 )
 
 type Lexer struct {
@@ -69,6 +68,8 @@ func (l *Lexer) NextLexeme() Lexeme {
 	switch l.ch {
 	case '"':
 		return l.readString()
+	case 92: //bashslash
+		return l.readQuote()
 	case 0:
 		lex.Literal = ""
 		lex.Type = EOF
@@ -95,16 +96,16 @@ func (l *Lexer) readWordOrNumber() Lexeme {
 	return lex
 }
 
-// func (l *Lexer) readQuote() Lexeme {
-// 	var lex Lexeme
-// 	pos := l.position + 1
-// 	for !isWhitespace(l.ch) && !isGrouping(l.ch) {
-// 		l.readChar()
-// 	}
-// 	lex.Type = QUOTE
-// 	lex.Literal = l.input[pos:l.position]
-// 	return lex
-// }
+func (l *Lexer) readQuote() Lexeme {
+	var lex Lexeme
+	pos := l.position + 1 //skip the backslash
+	for !isWhitespace(l.ch) {
+		l.readChar()
+	}
+	lex.Type = QUOTE
+	lex.Literal = l.input[pos:l.position]
+	return lex
+}
 
 // func (l *Lexer) readVar() Lexeme {
 // 	var lex Lexeme

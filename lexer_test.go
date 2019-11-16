@@ -6,7 +6,7 @@ import (
 
 func TestNextToken(t *testing.T) {
 	input := `
-		1    +2 -3          add "things and such" * #dup  -3.0023 22.1 :
+		1    +2 -3          add "things and such" * \dup  -3 22 :
 		{ } ( ) [ [ 2 ] ]
 	`
 	tests := []struct {
@@ -20,9 +20,9 @@ func TestNextToken(t *testing.T) {
 		{3, WORD, "add"},
 		{4, STR, "things and such"},
 		{5, WORD, "*"},
-		{6, WORD, "#dup"},
-		{7, NUM, "-3.0023"},
-		{7, NUM, "22.1"},
+		{6, QUOTE, "dup"},
+		{7, NUM, "-3"},
+		{7, NUM, "22"},
 		{8, WORD, ":"},
 		{9, WORD, "{"},
 		{10, WORD, "}"},
