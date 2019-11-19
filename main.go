@@ -12,11 +12,14 @@ import (
 )
 
 // regex to match numbers
-var number = regexp.MustCompile("^[-+]?[0-9]+.?[[0-9]*]?$")
+var numRegex = regexp.MustCompile("^[-+]?[0-9]+.?[[0-9]*]?$")
+
+type num {
+	ptr bool
+}
 
 type str struct {
 	ptr int
-	len int
 }
 
 type stack struct {
@@ -55,7 +58,7 @@ func main() {
 
 func NewVM() *VM {
 	return &VM{
-		makeDefaultDict(),
+		makeCoreWords(),
 		stack{
 			0,
 			make([]byte, 124*8),
@@ -93,19 +96,19 @@ func parseItem(v *VM, s string) error {
 			return fmt.Errorf("quote copy failed: copied %d, should be %d", c, len(b))
 		}
 		v.r.tos += len(b)
-		binary.BigEndian.PutUint64(v.s.data[v.s.tos:], uint64(v.s.tos))
+		binary.BigEndian.PutUint64(v.d.data[v.d.tos:], uint64(v.s.tos))
 		v.s.tos += 8
-		binary.BigEndian.PutUint64(v.s.data[v.s.tos:], uint64(len(b)))
+		binary.BigEndian.PutUint64(v.d.data[v.d.tos:], uint64(len(b)))
 		v.s.tos += 8
 		return nil
 
 	}
-	if number.Match([]byte(s)) {
+	if numRegex.Match([]byte(s)) {
 		i, err := strconv.Atoi(s)
 		if err != nil {
 			return err
 		}
-		binary.BigEndian.PutUint64(v.s.data[v.s.tos:], uint64(i))
+		binary.BigEndian.PutUint64(v.d.data[v.d.tos:], uint64(i))
 		v.s.tos += 8
 		return nil
 	}
@@ -125,7 +128,7 @@ func prnDataStack(v *VM) error {
 	return nil
 }
 
-func makeDefaultDict() map[string]vmfunc {
+func makeCoreWords() map[string]vmfunc {
 	d := make(map[string]vmfunc)
 	d["prn"] = prnDataStack
 	return d
