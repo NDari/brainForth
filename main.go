@@ -14,12 +14,11 @@ import (
 // regex to match numbers
 var numRegex = regexp.MustCompile("^[-+]?[0-9]+.?[[0-9]*]?$")
 
-type num {
-	ptr bool
-}
+const cellSize = 8
 
-type str struct {
-	ptr int
+type num struct {
+	ptr bool
+	val int
 }
 
 type stack struct {
@@ -31,28 +30,35 @@ type vmfunc func(*VM) error
 
 type VM struct {
 	words map[string]vmfunc
-	d stack
-	r stack
-	s stack
+	d     stack
+	r     stack
+	s     stack
 	input string
 }
 
 func main() {
 	v := NewVM()
 	rd := bufio.NewReader(os.Stdin)
-	lineNum := 0
+	lineNum := 1
 	for {
-		lineNum++
 		fmt.Print(fmt.Sprintf("[%d]=> ", lineNum))
 		str, _ := rd.ReadString('\n')
+		if strings.TrimSpace(str) == ":quit" || strings.TrimSpace(str) == ":q" {
+			fmt.Println("Goodbye!")
+			break
+		}
+		if strings.TrimSpace(str) == "" {
+			continue
+		}
 		v.input = str + "\n"
 		err := parseLine(v)
 		if err != nil {
 			fmt.Println(err)
 		} else {
-			fmt.Println("data:", v.s.data[:v.s.tos])
+			fmt.Println("data:", v.d.data[:v.d.tos])
 			fmt.Println("return:", v.r.data[:v.r.tos])
 		}
+		lineNum++
 	}
 }
 
@@ -96,10 +102,10 @@ func parseItem(v *VM, s string) error {
 			return fmt.Errorf("quote copy failed: copied %d, should be %d", c, len(b))
 		}
 		v.r.tos += len(b)
-		binary.BigEndian.PutUint64(v.d.data[v.d.tos:], uint64(v.s.tos))
-		v.s.tos += 8
+		binary.BigEndian.PutUint64(v.d.data[v.d.tos:], uint64(v.d.tos))
+		v.d.tos += cellSize
 		binary.BigEndian.PutUint64(v.d.data[v.d.tos:], uint64(len(b)))
-		v.s.tos += 8
+		v.d.tos += cellSize
 		return nil
 
 	}
@@ -109,7 +115,7 @@ func parseItem(v *VM, s string) error {
 			return err
 		}
 		binary.BigEndian.PutUint64(v.d.data[v.d.tos:], uint64(i))
-		v.s.tos += 8
+		v.d.tos += cellSize
 		return nil
 	}
 	word, ok := v.words[s]
