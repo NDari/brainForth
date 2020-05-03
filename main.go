@@ -19,9 +19,8 @@ type vmfunc func(*VM) error
 
 type VM struct {
 	words map[string]vmfunc
+	defs  map[string]string
 	d     stack
-	r     stack
-	s     stack
 }
 
 func main() {
@@ -33,24 +32,23 @@ func main() {
 		fmt.Print(fmt.Sprintf("[%d]=> ", lineNum))
 		str, _ := rd.ReadString('\n')
 		str = strings.TrimSpace(str)
-		if str == "quit" {
+		if str == ":quit" {
 			fmt.Println("Goodbye!")
 			break
 		}
 		if str == "" {
 			continue
 		}
-		if str == "verbose" {
+		if str == ":verbose" {
 			verbose = true
 			continue
 		}
-		err := v.parseInput(str)
+		err := v.interpret(str)
 		if err != nil {
 			fmt.Println(err)
 		}
 		if verbose {
 			fmt.Println("data:", v.d.data)
-			fmt.Println("return:", v.r.data)
 		}
 		lineNum++
 	}
@@ -58,28 +56,45 @@ func main() {
 
 func NewVM() *VM {
 	return &VM{
-		makeCoreWords(),
-		stack{
-			make([]string, 0),
-		},
-		stack{
-			make([]string, 0),
-		},
-		stack{
+		words: makeCoreWords(),
+		defs:  make(map[string]string),
+		d: stack{
 			make([]string, 0),
 		},
 	}
 }
 
-func (v *VM) parseInput(s string) error {
+func (v *VM) interpret(s string) error {
 	items := strings.Fields(s)
 	if len(items) == 0 {
 		return nil
 	}
+	if items[0] == "let" {
+		body := ""
+		name := items[1]
+		for _, item := range items[2:] {
+			body = fmt.Sprintf("%s %s", body, item)
+		}
+		v.defs[name] = body
+		fmt.Println(v.defs)
+		return nil
+	}
 	for _, item := range items {
+		if strings.HasPrefix(item, "\\") {
+			v.d.data = append(v.d.data, item)
+			continue
+		}
 		w, ok := v.words[item]
 		if ok {
 			w(v)
+			continue
+		}
+		body, ok := v.defs[item]
+		if ok {
+			err := v.interpret(body)
+			if err != nil {
+				return fmt.Errorf("error in calling user definition %s: %v", item, err)
+			}
 			continue
 		}
 		v.d.data = append(v.d.data, item)
@@ -107,12 +122,18 @@ func third(v *VM) error {
 	return nil
 }
 
+func prnDefs(v *VM) error {
+	fmt.Println(v.defs)
+	return nil
+}
+
 func makeCoreWords() map[string]vmfunc {
 	d := make(map[string]vmfunc)
 	d["$0"] = prnDataStack
 	d["$1"] = first
 	d["$2"] = second
 	d["$3"] = third
+	d["defs"] = prnDefs
 	return d
 }
 
