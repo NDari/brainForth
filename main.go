@@ -2,28 +2,17 @@ package main
 
 import (
 	"bufio"
-	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"regexp"
-	"strconv"
 	"strings"
 )
 
 // regex to match numbers
 var numRegex = regexp.MustCompile("^[-+]?[0-9]+.?[[0-9]*]?$")
 
-const cellSize = 8
-
-type num struct {
-	ptr bool
-	val int
-}
-
 type stack struct {
-	tos  int
-	data []byte
+	data []string
 }
 
 type vmfunc func(*VM) error
@@ -33,30 +22,35 @@ type VM struct {
 	d     stack
 	r     stack
 	s     stack
-	input string
 }
 
 func main() {
 	v := NewVM()
 	rd := bufio.NewReader(os.Stdin)
 	lineNum := 1
+	verbose := false
 	for {
 		fmt.Print(fmt.Sprintf("[%d]=> ", lineNum))
 		str, _ := rd.ReadString('\n')
-		if strings.TrimSpace(str) == ":quit" || strings.TrimSpace(str) == ":q" {
+		str = strings.TrimSpace(str)
+		if str == "quit" {
 			fmt.Println("Goodbye!")
 			break
 		}
-		if strings.TrimSpace(str) == "" {
+		if str == "" {
 			continue
 		}
-		v.input = str + "\n"
-		err := parseLine(v)
+		if str == "verbose" {
+			verbose = true
+			continue
+		}
+		err := v.parseInput(str)
 		if err != nil {
 			fmt.Println(err)
-		} else {
-			fmt.Println("data:", v.d.data[:v.d.tos])
-			fmt.Println("return:", v.r.data[:v.r.tos])
+		}
+		if verbose {
+			fmt.Println("data:", v.d.data)
+			fmt.Println("return:", v.r.data)
 		}
 		lineNum++
 	}
@@ -66,77 +60,59 @@ func NewVM() *VM {
 	return &VM{
 		makeCoreWords(),
 		stack{
-			0,
-			make([]byte, 124*8),
+			make([]string, 0),
 		},
 		stack{
-			0,
-			make([]byte, 124*8),
+			make([]string, 0),
 		},
 		stack{
-			0,
-			make([]byte, 124*8),
+			make([]string, 0),
 		},
-		"",
 	}
 }
 
-func parseLine(v *VM) error {
-	items := strings.Fields(v.input)
+func (v *VM) parseInput(s string) error {
+	items := strings.Fields(s)
 	if len(items) == 0 {
 		return nil
 	}
 	for _, item := range items {
-		if err := parseItem(v, item); err != nil {
-			return err
+		w, ok := v.words[item]
+		if ok {
+			w(v)
+			continue
 		}
-	}
-	return nil
-}
-
-func parseItem(v *VM, s string) error {
-	if strings.HasPrefix(s, "\\") {
-		b := []byte(s)
-		c := copy(v.r.data[v.r.tos:], b)
-		if c != len(b) {
-			return fmt.Errorf("quote copy failed: copied %d, should be %d", c, len(b))
-		}
-		v.r.tos += len(b)
-		binary.BigEndian.PutUint64(v.d.data[v.d.tos:], uint64(v.d.tos))
-		v.d.tos += cellSize
-		binary.BigEndian.PutUint64(v.d.data[v.d.tos:], uint64(len(b)))
-		v.d.tos += cellSize
-		return nil
-
-	}
-	if numRegex.Match([]byte(s)) {
-		i, err := strconv.Atoi(s)
-		if err != nil {
-			return err
-		}
-		binary.BigEndian.PutUint64(v.d.data[v.d.tos:], uint64(i))
-		v.d.tos += cellSize
-		return nil
-	}
-	word, ok := v.words[s]
-	if !ok {
-		return fmt.Errorf("unknown word: %s", s)
-	}
-	err := word(v)
-	if err != nil {
-		return err
+		v.d.data = append(v.d.data, item)
 	}
 	return nil
 }
 
 func prnDataStack(v *VM) error {
-	fmt.Println(fmt.Sprintf("%s", hex.Dump(v.s.data[:v.s.tos])))
+	fmt.Println(v.d.data)
+	return nil
+}
+
+func first(v *VM) error {
+	fmt.Println(v.d.data[0])
+	return nil
+}
+
+func second(v *VM) error {
+	fmt.Println(v.d.data[1])
+	return nil
+}
+
+func third(v *VM) error {
+	fmt.Println(v.d.data[2])
 	return nil
 }
 
 func makeCoreWords() map[string]vmfunc {
 	d := make(map[string]vmfunc)
-	d["prn"] = prnDataStack
+	d["$0"] = prnDataStack
+	d["$1"] = first
+	d["$2"] = second
+	d["$3"] = third
 	return d
 }
 
