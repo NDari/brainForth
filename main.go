@@ -108,17 +108,17 @@ func prnDataStack(v *VM) error {
 }
 
 func first(v *VM) error {
-	fmt.Println(v.d.data[0])
+	fmt.Println(v.d.data[len(v.d.data)-1])
 	return nil
 }
 
 func second(v *VM) error {
-	fmt.Println(v.d.data[1])
+	fmt.Println(v.d.data[len(v.d.data)-2])
 	return nil
 }
 
 func third(v *VM) error {
-	fmt.Println(v.d.data[2])
+	fmt.Println(v.d.data[len(v.d.data)-3])
 	return nil
 }
 
