@@ -11,16 +11,13 @@ import (
 // regex to match numbers
 var numRegex = regexp.MustCompile("^[-+]?[0-9]+.?[[0-9]*]?$")
 
-type stack struct {
-	data []string
-}
-
 type vmfunc func(*VM) error
 
 type VM struct {
-	words map[string]vmfunc
-	defs  map[string]string
-	d     stack
+	words  map[string]vmfunc
+	defs   map[string]string
+	macros map[string]string
+	data   []string
 }
 
 func main() {
@@ -30,16 +27,17 @@ func main() {
 	verbose := false
 	for {
 		fmt.Print(fmt.Sprintf("[%d]=> ", lineNum))
-		str, _ := rd.ReadString('\n')
+		str, _ := rd.ReadString(';')
 		str = strings.TrimSpace(str)
-		if str == ":quit" {
+		str = strings.TrimSuffix(str, ";")
+		if str == ":q" {
 			fmt.Println("Goodbye!")
 			break
 		}
 		if str == "" {
 			continue
 		}
-		if str == ":verbose" {
+		if str == ":v" {
 			verbose = true
 			continue
 		}
@@ -48,7 +46,7 @@ func main() {
 			fmt.Println(err)
 		}
 		if verbose {
-			fmt.Println("data:", v.d.data)
+			fmt.Println("data:", v.data)
 		}
 		lineNum++
 	}
@@ -56,11 +54,10 @@ func main() {
 
 func NewVM() *VM {
 	return &VM{
-		words: makeCoreWords(),
-		defs:  make(map[string]string),
-		d: stack{
-			make([]string, 0),
-		},
+		words:  makeCoreWords(),
+		defs:   make(map[string]string),
+		macros: make(map[string]string),
+		data:   make([]string, 0),
 	}
 }
 
@@ -69,19 +66,18 @@ func (v *VM) interpret(s string) error {
 	if len(items) == 0 {
 		return nil
 	}
-	if items[0] == "let" {
+	if items[0] == "mac" {
 		body := ""
 		name := items[1]
 		for _, item := range items[2:] {
 			body = fmt.Sprintf("%s %s", body, item)
 		}
-		v.defs[name] = body
-		fmt.Println(v.defs)
+		v.macros[name] = body
 		return nil
 	}
 	for _, item := range items {
-		if strings.HasPrefix(item, "\\") {
-			v.d.data = append(v.d.data, item)
+		if strings.HasPrefix(item, "'") {
+			v.data = append(v.data, item)
 			continue
 		}
 		w, ok := v.words[item]
@@ -97,33 +93,40 @@ func (v *VM) interpret(s string) error {
 			}
 			continue
 		}
-		v.d.data = append(v.d.data, item)
+		v.data = append(v.data, item)
 	}
 	return nil
 }
 
 func prnDataStack(v *VM) error {
-	fmt.Println(v.d.data)
+	fmt.Println(v.data)
 	return nil
 }
 
 func first(v *VM) error {
-	fmt.Println(v.d.data[len(v.d.data)-1])
+	fmt.Println(v.data[len(v.data)-1])
 	return nil
 }
 
 func second(v *VM) error {
-	fmt.Println(v.d.data[len(v.d.data)-2])
+	fmt.Println(v.data[len(v.data)-2])
 	return nil
 }
 
 func third(v *VM) error {
-	fmt.Println(v.d.data[len(v.d.data)-3])
+	fmt.Println(v.data[len(v.data)-3])
 	return nil
 }
 
 func prnDefs(v *VM) error {
 	fmt.Println(v.defs)
+	return nil
+}
+
+func words(v *VM) error {
+	for k := range v.words {
+		fmt.Println(k)
+	}
 	return nil
 }
 
@@ -134,6 +137,7 @@ func makeCoreWords() map[string]vmfunc {
 	d["$2"] = second
 	d["$3"] = third
 	d["defs"] = prnDefs
+	d["words"] = words
 	return d
 }
 
