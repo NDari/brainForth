@@ -11,7 +11,17 @@ import (
 // regex to match numbers
 var numRegex = regexp.MustCompile("^[-+]?[0-9]+.?[[0-9]*]?$")
 
-type vmfunc func(*VM) error
+type vmfunc struct {
+	comment string
+	call    func(*VM) error
+}
+
+func newVMFunc(comment string, fn func(*VM) error) vmfunc {
+	return vmfunc{
+		comment,
+		fn,
+	}
+}
 
 type VM struct {
 	words  map[string]vmfunc
@@ -82,7 +92,7 @@ func (v *VM) interpret(s string) error {
 		}
 		w, ok := v.words[item]
 		if ok {
-			w(v)
+			w.call(v)
 			continue
 		}
 		body, ok := v.defs[item]
@@ -124,20 +134,20 @@ func prnDefs(v *VM) error {
 }
 
 func words(v *VM) error {
-	for k := range v.words {
-		fmt.Println(k)
+	for k, v := range v.words {
+		fmt.Println(fmt.Sprintf("%s: %s", k, v.comment))
 	}
 	return nil
 }
 
 func makeCoreWords() map[string]vmfunc {
 	d := make(map[string]vmfunc)
-	d["$0"] = prnDataStack
-	d["$1"] = first
-	d["$2"] = second
-	d["$3"] = third
-	d["defs"] = prnDefs
-	d["words"] = words
+	d["$0"] = newVMFunc("print the data stack", prnDataStack)
+	d["$1"] = newVMFunc("reference to the item on top of stack", first)
+	d["$2"] = newVMFunc("reference to the second item on the stack", second)
+	d["$3"] = newVMFunc("reference to the third item on the stack", third)
+	d["defs"] = newVMFunc("prints the user definitions", prnDefs)
+	d["words"] = newVMFunc("prints the words", words)
 	return d
 }
 
