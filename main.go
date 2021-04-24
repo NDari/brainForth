@@ -85,6 +85,15 @@ func (v *VM) interpret(s string) error {
 		v.macros[name] = body
 		return nil
 	}
+	if items[0] == "def" {
+		body := ""
+		name := items[1]
+		for _, item := range items[2:] {
+			body = fmt.Sprintf("%s %s", body, item)
+		}
+		v.defs[name] = body
+		return nil
+	}
 	for _, item := range items {
 		if strings.HasPrefix(item, "'") {
 			v.data = append(v.data, item)
